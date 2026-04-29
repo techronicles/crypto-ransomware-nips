@@ -46,6 +46,7 @@
               <th class="text-left p-4">Threat</th>
               <th class="text-left p-4">Severity</th>
               <th class="text-left p-4">Status</th>
+              <th class="text-left p-4">Actions</th>
             </tr>
           </thead>
 
@@ -77,10 +78,41 @@
                   {{ alert.status }}
                 </span>
               </td>
+              <td class="p-4">
+                <div class="flex flex-wrap gap-2">
+                  <button
+                    @click="updateStatus(alert.id, 'Reviewed')"
+                    class="px-3 py-2 rounded-lg text-xs bg-blue-600 hover:bg-blue-700 transition"
+                  >
+                    Review
+                  </button>
+
+                  <button
+                    @click="updateStatus(alert.id, 'Resolved')"
+                    class="px-3 py-2 rounded-lg text-xs bg-green-600 hover:bg-green-700 transition"
+                  >
+                    Resolve
+                  </button>
+
+                  <button
+                    @click="updateStatus(alert.id, 'False Positive')"
+                    class="px-3 py-2 rounded-lg text-xs bg-slate-700 hover:bg-slate-600 transition"
+                  >
+                    False +
+                  </button>
+                </div>
+              </td>
             </tr>
           </tbody>
         </table>
       </div>
+    </div>
+
+    <div
+      v-if="successMessage"
+      class="mt-4 bg-green-500/10 border border-green-500/30 text-green-400 p-4 rounded-xl"
+    >
+      {{ successMessage }}
     </div>
   </section>
 </template>
@@ -91,6 +123,7 @@ import api from "../services/api";
 
 const loading = ref(true);
 const error = ref("");
+const successMessage = ref("");
 const alerts = ref([]);
 
 const severityClass = (severity) => {
@@ -102,13 +135,17 @@ const severityClass = (severity) => {
 const statusClass = (status) => {
   if (status === "Blocked") return "bg-red-500/20 text-red-400";
   if (status === "Monitoring") return "bg-yellow-500/20 text-yellow-400";
-  return "bg-blue-500/20 text-blue-400";
+  if (status === "Reviewed") return "bg-blue-500/20 text-blue-400";
+  if (status === "Resolved") return "bg-green-500/20 text-green-400";
+  if (status === "False Positive") return "bg-slate-500/20 text-slate-300";
+  return "bg-slate-500/20 text-slate-400";
 };
 
 const loadAlerts = async () => {
   try {
     loading.value = true;
     error.value = "";
+    successMessage.value = "";
 
     const response = await api.get("/api/alerts");
     alerts.value = response.data;
@@ -117,6 +154,26 @@ const loadAlerts = async () => {
     console.error(err);
   } finally {
     loading.value = false;
+  }
+};
+
+const updateStatus = async (alertId, status) => {
+  try {
+    error.value = "";
+    successMessage.value = "";
+
+    const response = await api.patch(`/api/alerts/${alertId}/status`, {
+      status,
+    });
+
+    alerts.value = alerts.value.map((alert) =>
+      alert.id === alertId ? response.data : alert
+    );
+
+    successMessage.value = `Alert marked as ${status}.`;
+  } catch (err) {
+    error.value = "Failed to update alert status.";
+    console.error(err);
   }
 };
 

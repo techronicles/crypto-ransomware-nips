@@ -5,6 +5,7 @@ import AlertsView from "../views/AlertsView.vue";
 import TrafficView from "../views/TrafficView.vue";
 import BlockedIPsView from "../views/BlockedIPsView.vue";
 import ModelStatusView from "../views/ModelStatusView.vue";
+import SimulatorView from "../views/SimulatorView.vue";
 
 const routes = [
   { path: "/", name: "dashboard", component: DashboardView },
@@ -12,6 +13,7 @@ const routes = [
   { path: "/traffic", name: "traffic", component: TrafficView },
   { path: "/blocked-ips", name: "blocked-ips", component: BlockedIPsView },
   { path: "/model-status", name: "model-status", component: ModelStatusView },
+  { path: "/simulator", name: "simulator", component: SimulatorView },
 ];
 
 const router = createRouter({

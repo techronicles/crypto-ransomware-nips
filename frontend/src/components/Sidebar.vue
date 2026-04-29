@@ -26,5 +26,6 @@ const links = [
   { name: "Traffic Monitor", path: "/traffic" },
   { name: "Blocked IPs", path: "/blocked-ips" },
   { name: "Model Status", path: "/model-status" },
+  { name: "Attack Simulator", path: "/simulator" },
 ];
 </script>

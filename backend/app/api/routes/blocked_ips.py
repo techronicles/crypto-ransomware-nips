@@ -1,6 +1,9 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from datetime import datetime
+
+from app.core.database import SessionLocal
+from app.models.blocked_ip import BlockedIP
 
 router = APIRouter()
 
@@ -10,41 +13,49 @@ class BlockIPRequest(BaseModel):
     reason: str
 
 
-blocked_ips = [
-    {
-        "id": 1,
-        "ipAddress": "192.168.1.12",
-        "reason": "Crypto-ransomware traffic detected",
-        "blockedAt": "2026-04-27 09:30 AM",
-        "mode": "Auto",
-        "status": "Active",
-    },
-    {
-        "id": 2,
-        "ipAddress": "185.220.101.4",
-        "reason": "Possible C2 communication",
-        "blockedAt": "2026-04-27 10:05 AM",
-        "mode": "Auto",
-        "status": "Active",
-    },
-]
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 @router.get("")
-def get_blocked_ips():
-    return blocked_ips
+def get_blocked_ips(db: Session = Depends(get_db)):
+    rows = db.query(BlockedIP).order_by(BlockedIP.id.desc()).all()
+
+    return [
+        {
+            "id": item.id,
+            "ipAddress": item.ip_address,
+            "reason": item.reason,
+            "blockedAt": item.blocked_at.strftime("%Y-%m-%d %I:%M %p"),
+            "mode": item.mode,
+            "status": item.status,
+        }
+        for item in rows
+    ]
 
 
 @router.post("")
-def add_blocked_ip(payload: BlockIPRequest):
-    new_ip = {
-        "id": len(blocked_ips) + 1,
-        "ipAddress": payload.ipAddress,
-        "reason": payload.reason,
-        "blockedAt": datetime.now().strftime("%Y-%m-%d %I:%M %p"),
-        "mode": "Manual",
-        "status": "Active",
-    }
+def add_blocked_ip(payload: BlockIPRequest, db: Session = Depends(get_db)):
+    row = BlockedIP(
+        ip_address=payload.ipAddress,
+        reason=payload.reason,
+        mode="Manual",
+        status="Active",
+    )
 
-    blocked_ips.insert(0, new_ip)
-    return new_ip
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+
+    return {
+        "id": row.id,
+        "ipAddress": row.ip_address,
+        "reason": row.reason,
+        "blockedAt": row.blocked_at.strftime("%Y-%m-%d %I:%M %p"),
+        "mode": row.mode,
+        "status": row.status,
+    }

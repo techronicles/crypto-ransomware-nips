@@ -1,36 +1,33 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+
+from app.core.database import SessionLocal
+from app.models.traffic_log import TrafficLog
 
 router = APIRouter()
 
 
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
 @router.get("")
-def get_traffic_records():
+def get_traffic_records(db: Session = Depends(get_db)):
+    rows = db.query(TrafficLog).order_by(TrafficLog.id.desc()).all()
+
     return [
         {
-            "id": 1,
-            "timestamp": "2026-04-27 09:31 AM",
-            "sourceIp": "192.168.1.20",
-            "destinationIp": "8.8.8.8",
-            "protocol": "TCP",
-            "packetSize": 512,
-            "prediction": "Benign",
-        },
-        {
-            "id": 2,
-            "timestamp": "2026-04-27 09:36 AM",
-            "sourceIp": "192.168.1.12",
-            "destinationIp": "10.0.0.5",
-            "protocol": "SMB",
-            "packetSize": 1480,
-            "prediction": "Malicious",
-        },
-        {
-            "id": 3,
-            "timestamp": "2026-04-27 09:42 AM",
-            "sourceIp": "192.168.1.34",
-            "destinationIp": "185.220.101.4",
-            "protocol": "TCP",
-            "packetSize": 960,
-            "prediction": "Suspicious",
-        },
+            "id": item.id,
+            "timestamp": item.timestamp.strftime("%Y-%m-%d %I:%M %p"),
+            "sourceIp": item.source_ip,
+            "destinationIp": item.destination_ip,
+            "protocol": item.protocol,
+            "packetSize": item.packet_size,
+            "prediction": item.prediction,
+        }
+        for item in rows
     ]

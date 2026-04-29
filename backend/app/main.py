@@ -6,6 +6,7 @@ from app.api.routes.alerts import router as alerts_router
 from app.api.routes.traffic import router as traffic_router
 from app.api.routes.blocked_ips import router as blocked_ips_router
 from app.api.routes.model_status import router as model_status_router
+from app.api.routes.predict import router as predict_router
 
 app = FastAPI(
     title="AI-Driven NIPS API",
@@ -38,3 +39,4 @@ app.include_router(alerts_router, prefix="/api/alerts", tags=["Alerts"])
 app.include_router(traffic_router, prefix="/api/traffic", tags=["Traffic"])
 app.include_router(blocked_ips_router, prefix="/api/blocked-ips", tags=["Blocked IPs"])
 app.include_router(model_status_router, prefix="/api/model", tags=["Model"])
+app.include_router(predict_router, prefix="/api/predict", tags=["Prediction"])
