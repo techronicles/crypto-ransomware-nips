@@ -2,20 +2,29 @@
   <section>
     <div class="mb-6 flex items-center justify-between">
       <div>
-        <h2 class="text-2xl font-bold text-white">Blocked IPs</h2>
         <p class="text-slate-400">
-          Malicious IP addresses blocked by the prevention module
+          Blocked IPs > Malicious IP addresses blocked by the prevention module
         </p>
       </div>
 
-      <button
-        @click="showForm = !showForm"
-        class="bg-blue-600 hover:bg-blue-700 transition px-5 py-3 rounded-xl font-medium"
-      >
-        Add Manual Block
-      </button>
+      <div class="flex gap-3">
+        <button
+          @click="loadBlockedIps"
+          :disabled="loading"
+          class="bg-slate-700 hover:bg-slate-600 transition px-5 py-3 rounded-xl font-medium disabled:opacity-50"
+        >
+          {{ loading ? "Refreshing..." : "Refresh" }}
+        </button>
+        <button
+          @click="showForm = !showForm"
+          class="bg-blue-600 hover:bg-blue-700 transition px-5 py-3 rounded-xl font-medium"
+        >
+          Add Manual Block
+        </button>
+      </div>
     </div>
 
+    <!-- Add Form -->
     <div
       v-if="showForm"
       class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mb-6"
@@ -49,10 +58,12 @@
       </form>
     </div>
 
-    <div v-if="loading" class="text-slate-400">
+    <!-- Loading State (initial only) -->
+    <div v-if="loading && blockedIps.length === 0" class="text-slate-400">
       Loading blocked IPs...
     </div>
 
+    <!-- Error State -->
     <div
       v-else-if="error"
       class="bg-red-500/10 border border-red-500/30 text-red-400 p-4 rounded-xl"
@@ -60,6 +71,7 @@
       {{ error }}
     </div>
 
+    <!-- Data Display -->
     <div
       v-else
       class="bg-slate-900 border border-slate-800 rounded-2xl p-6"
@@ -78,11 +90,11 @@
         <table class="w-full text-sm">
           <thead class="bg-slate-800 text-slate-300">
             <tr>
-              <th class="text-left p-4">IP Address</th>
-              <th class="text-left p-4">Reason</th>
-              <th class="text-left p-4">Blocked At</th>
-              <th class="text-left p-4">Mode</th>
-              <th class="text-left p-4">Status</th>
+              <th scope="col" class="text-left p-4">IP Address</th>
+              <th scope="col" class="text-left p-4">Reason</th>
+              <th scope="col" class="text-left p-4">Blocked At</th>
+              <th scope="col" class="text-left p-4">Mode</th>
+              <th scope="col" class="text-left p-4">Status</th>
             </tr>
           </thead>
 
@@ -93,24 +105,24 @@
               class="border-t border-slate-800 hover:bg-slate-800/50"
             >
               <td class="p-4 font-medium text-slate-200">
-                {{ ip.ipAddress }}
+                {{ ip.ipAddress || '—' }}
               </td>
-              <td class="p-4">{{ ip.reason }}</td>
-              <td class="p-4">{{ ip.blockedAt }}</td>
+              <td class="p-4">{{ ip.reason || '—' }}</td>
+              <td class="p-4">{{ formatTimestamp(ip.blockedAt) }}</td>
               <td class="p-4">
                 <span
-                  class="px-3 py-1 rounded-full text-xs"
+                  class="px-3 py-1 rounded-full text-xs font-medium"
                   :class="modeClass(ip.mode)"
                 >
-                  {{ ip.mode }}
+                  {{ ip.mode || 'Manual' }}
                 </span>
               </td>
               <td class="p-4">
                 <span
-                  class="px-3 py-1 rounded-full text-xs"
+                  class="px-3 py-1 rounded-full text-xs font-medium"
                   :class="statusClass(ip.status)"
                 >
-                  {{ ip.status }}
+                  {{ ip.status || 'Active' }}
                 </span>
               </td>
             </tr>
@@ -122,68 +134,158 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from "vue";
-import api from "../services/api";
+import { onMounted, onUnmounted, ref } from 'vue';
+import { useRouter } from 'vue-router'; // optional – install if not already
+import api from '../services/api';
 
-const loading = ref(true);
+// --- State ---
+const loading = ref(false);
 const submitting = ref(false);
-const error = ref("");
+const error = ref('');
 const showForm = ref(false);
-
 const blockedIps = ref([]);
+let refreshInterval = null;
 
+// Form state
 const form = ref({
-  ipAddress: "",
-  reason: "",
+  ipAddress: '',
+  reason: '',
 });
 
+// Router (if using Vue Router, otherwise undefined)
+const router = useRouter();
+
+// --- Helper: Format Timestamp (ISO → readable) ---
+const formatTimestamp = (isoString) => {
+  if (!isoString) return '—';
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    }).format(new Date(isoString));
+  } catch {
+    return isoString;
+  }
+};
+
+// --- Styling Helpers ---
 const modeClass = (mode) => {
-  if (mode === "Auto") return "bg-purple-500/20 text-purple-400";
-  return "bg-blue-500/20 text-blue-400";
+  if (mode === 'Auto') return 'bg-purple-500/20 text-purple-400';
+  return 'bg-blue-500/20 text-blue-400';
 };
 
 const statusClass = (status) => {
-  if (status === "Active") return "bg-red-500/20 text-red-400";
-  return "bg-slate-500/20 text-slate-400";
+  if (status === 'Active') return 'bg-red-500/20 text-red-400';
+  return 'bg-slate-500/20 text-slate-400';
 };
 
-const loadBlockedIps = async () => {
-  try {
-    loading.value = true;
-    error.value = "";
+// --- Authentication & Redirect ---
+const clearAuthAndRedirect = (reason) => {
+  // Clear stored tokens (adjust according to your auth implementation)
+  localStorage.removeItem('access_token');
+  sessionStorage.removeItem('access_token');
+  // If you use Vuex/Pinia, also clear auth store here
 
-    const response = await api.get("/api/blocked-ips");
-    blockedIps.value = response.data;
+  error.value = `${reason} Redirecting to login...`;
+
+  setTimeout(() => {
+    if (router) {
+      router.push('/login');
+    } else {
+      window.location.href = '/login';
+    }
+  }, 1500);
+};
+
+// --- Fetch Blocked IPs ---
+const loadBlockedIps = async () => {
+  if (loading.value) return;
+
+  loading.value = true;
+  error.value = '';
+
+  try {
+    const response = await api.get('/api/v1/blocked_ips');
+    const data = response.data;
+    // Ensure data is an array
+    blockedIps.value = Array.isArray(data) ? data : [];
   } catch (err) {
-    error.value = "Failed to fetch blocked IPs. Make sure backend is running.";
-    console.error(err);
+    console.error('Load blocked IPs error:', err);
+
+    if (err.response?.status === 401) {
+      clearAuthAndRedirect('Your session has expired.');
+    } else if (err.response?.status === 403) {
+      clearAuthAndRedirect('Access forbidden. Your token may be invalid or you lack permissions.');
+    } else if (err.code === 'ERR_NETWORK') {
+      error.value = 'Cannot connect to backend. Is the server running?';
+    } else {
+      error.value = 'Failed to fetch blocked IPs. Please try again later.';
+    }
   } finally {
     loading.value = false;
   }
 };
 
+// --- Submit New Block ---
 const submitBlockIp = async () => {
+  if (submitting.value) return;
+
+  submitting.value = true;
+  error.value = '';
+
   try {
-    submitting.value = true;
-    error.value = "";
+    const response = await api.post('/api/v1/blocked_ips', {
+      ipAddress: form.value.ipAddress,
+      reason: form.value.reason,
+    });
 
-    const response = await api.post("/api/blocked-ips", form.value);
-
+    // Prepend new block to the list
     blockedIps.value.unshift(response.data);
 
-    form.value = {
-      ipAddress: "",
-      reason: "",
-    };
-
+    // Reset form and hide it
+    form.value = { ipAddress: '', reason: '' };
     showForm.value = false;
   } catch (err) {
-    error.value = "Failed to block IP address.";
-    console.error(err);
+    console.error('Submit block IP error:', err);
+
+    if (err.response?.status === 401) {
+      clearAuthAndRedirect('Your session has expired.');
+    } else if (err.response?.status === 403) {
+      clearAuthAndRedirect('Access forbidden. Your token may be invalid or you lack permissions.');
+    } else if (err.response?.status === 400) {
+      error.value = err.response.data?.message || 'Invalid IP address or missing data.';
+    } else if (err.code === 'ERR_NETWORK') {
+      error.value = 'Cannot connect to backend. Is the server running?';
+    } else {
+      error.value = 'Failed to block IP. Please try again later.';
+    }
   } finally {
     submitting.value = false;
   }
 };
 
-onMounted(loadBlockedIps);
+// --- Polling (every 30 seconds) ---
+const startPolling = () => {
+  if (refreshInterval) clearInterval(refreshInterval);
+  refreshInterval = setInterval(() => {
+    // Don't poll if we're already loading, submitting, or in a redirect state
+    if (!loading.value && !submitting.value && !error.value?.includes('Redirecting')) {
+      loadBlockedIps();
+    }
+  }, 30000);
+};
+
+// --- Lifecycle ---
+onMounted(() => {
+  loadBlockedIps();
+  startPolling();
+});
+
+onUnmounted(() => {
+  if (refreshInterval) clearInterval(refreshInterval);
+});
 </script>
