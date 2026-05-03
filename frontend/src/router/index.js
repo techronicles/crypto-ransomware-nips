@@ -1,24 +1,44 @@
 import { createRouter, createWebHistory } from "vue-router";
-
-import DashboardView from "../views/DashboardView.vue";
-import AlertsView from "../views/AlertsView.vue";
-import TrafficView from "../views/TrafficView.vue";
-import BlockedIPsView from "../views/BlockedIPsView.vue";
-import ModelStatusView from "../views/ModelStatusView.vue";
-import SimulatorView from "../views/SimulatorView.vue";
+import DefaultLayout from '@/layouts/DefaultLayout.vue';
+import BlankLayout from '@/layouts/BlankLayout.vue';
 
 const routes = [
-  { path: "/", name: "dashboard", component: DashboardView },
-  { path: "/alerts", name: "alerts", component: AlertsView },
-  { path: "/traffic", name: "traffic", component: TrafficView },
-  { path: "/blocked-ips", name: "blocked-ips", component: BlockedIPsView },
-  { path: "/model-status", name: "model-status", component: ModelStatusView },
-  { path: "/simulator", name: "simulator", component: SimulatorView },
+  {
+    path: '/login',
+    component: BlankLayout,
+    children: [
+      { path: '', component: () => import('@/views/LoginView.vue') }
+    ]
+  },
+
+  {
+    path: '/',
+    component: DefaultLayout,
+    redirect: '/dashboard',
+    children: [
+      { path: 'dashboard', name: 'dashboard', component: () => import('@/views/DashboardView.vue') },
+      { path: 'traffic', name: 'traffic', component: () => import('@/views/TrafficView.vue') },
+      { path: 'alerts', name: 'alerts', component: () => import('@/views/AlertsView.vue') },
+      { path: 'blocked_ips', name: 'blocked_ips', component: () => import('@/views/BlockedIPsView.vue') },
+      { path: 'model_status', name: 'model_status', component: () => import('@/views/ModelStatusView.vue') },
+      { path: 'simulator', name: 'simulator', component: () => import('@/views/SimulatorView.vue') },
+    ]
+  },
 ];
 
 const router = createRouter({
   history: createWebHistory(),
   routes,
+});
+
+// Auth guard
+router.beforeEach((to, from, next) => {
+  const token = localStorage.getItem('access_token');
+  if (to.path !== '/login' && !token) {
+    next('/login');
+  } else {
+    next();
+  }
 });
 
 export default router;
