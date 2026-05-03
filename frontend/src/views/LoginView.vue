@@ -1,7 +1,7 @@
 <template>
   <div class="min-h-screen flex items-center justify-center bg-slate-950 text-slate-100 px-4">
     <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-xl">
-      <h1 class="text-3xl font-bold mb-6 text-white">Admin Login</h1>
+      <h1 class="text-3xl font-bold mb-6 text-white">Login</h1>
 
       <!-- Warning message (e.g., session expired, forbidden) -->
       <div
