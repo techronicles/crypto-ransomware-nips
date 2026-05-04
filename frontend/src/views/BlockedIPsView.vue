@@ -105,10 +105,10 @@
               class="border-t border-slate-800 hover:bg-slate-800/50"
             >
               <td class="p-4 font-medium text-slate-200">
-                {{ ip.ipAddress || '—' }}
+                {{ ip.ip_address || '—' }}
               </td>
               <td class="p-4">{{ ip.reason || '—' }}</td>
-              <td class="p-4">{{ formatTimestamp(ip.blockedAt) }}</td>
+              <td class="p-4">{{ formatTimestamp(ip.blocked_at) }}</td>
               <td class="p-4">
                 <span
                   class="px-3 py-1 rounded-full text-xs font-medium"
@@ -148,7 +148,7 @@ let refreshInterval = null;
 
 // Form state
 const form = ref({
-  ipAddress: '',
+  ip_address: '',
   reason: '',
 });
 
