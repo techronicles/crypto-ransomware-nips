@@ -120,7 +120,7 @@
           View Alerts
         </RouterLink>
         <RouterLink
-          to="/blocked-ips"
+          to="/blocked_ips"
           class="bg-slate-800 hover:bg-slate-700 px-4 py-2 rounded-xl transition"
         >
           View Blocked IPs
