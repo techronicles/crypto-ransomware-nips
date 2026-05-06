@@ -33,7 +33,7 @@
 
       <form @submit.prevent="submitBlockIp" class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <input
-          v-model="form.ipAddress"
+          v-model="form.ip_address"
           type="text"
           placeholder="IP Address e.g. 192.168.1.100"
           class="bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-blue-500"
@@ -239,7 +239,7 @@ const submitBlockIp = async () => {
 
   try {
     const response = await api.post('/api/v1/blocked_ips', {
-      ipAddress: form.value.ipAddress,
+      ip_address: form.value.ip_address,
       reason: form.value.reason,
     });
 
@@ -247,7 +247,7 @@ const submitBlockIp = async () => {
     blockedIps.value.unshift(response.data);
 
     // Reset form and hide it
-    form.value = { ipAddress: '', reason: '' };
+    form.value = { ip_address: '', reason: '' };
     showForm.value = false;
   } catch (err) {
     console.error('Submit block IP error:', err);
