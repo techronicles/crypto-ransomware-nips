@@ -69,11 +69,17 @@
               class="border-t border-slate-800 hover:bg-slate-800/50 transition"
             >
               <td class="p-4">{{ formatTimestamp(alert.timestamp) }}</td>
-              <td class="p-4 font-medium text-slate-200">
-                {{ alert.sourceIp || '—' }}
+             <td class="p-4 font-medium text-slate-200">
+                {{ alert.sourceIp || alert.source_ip || '—' }}
               </td>
-              <td class="p-4">{{ alert.destinationIp || '—' }}</td>
-              <td class="p-4">{{ alert.threatType || '—' }}</td>
+
+              <td class="p-4">
+                {{ alert.destinationIp || alert.destination_ip || '—' }}
+              </td>
+
+              <td class="p-4">
+                {{ alert.threatType || alert.threat_type || '—' }}
+              </td>
               <td class="p-4">
                 <span
                   class="px-3 py-1 rounded-full text-xs font-medium"

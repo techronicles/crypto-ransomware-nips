@@ -63,11 +63,22 @@
                 class="border-t border-slate-800 hover:bg-slate-800/50"
               >
                 <td class="p-4">{{ formatTimestamp(traffic.timestamp) }}</td>
-                <td class="p-4">{{ traffic.sourceIp || '—' }}</td>
-                <td class="p-4">{{ traffic.destinationIp || '—' }}</td>
-                <td class="p-4">{{ traffic.protocol || '—' }}</td>
-                <td class="p-4">{{ traffic.packetSize ?? '—' }} bytes</td>
                 <td class="p-4">
+                    {{ traffic.sourceIp || traffic.source_ip || '—' }}
+                  </td>
+
+                  <td class="p-4">
+                    {{ traffic.destinationIp || traffic.destination_ip || '—' }}
+                  </td>
+
+                  <td class="p-4">
+                    {{ traffic.protocol || '—' }}
+                  </td>
+
+                  <td class="p-4">
+                    {{ traffic.packetSize ?? traffic.packet_size ?? '—' }} bytes
+                  </td>
+                                  <td class="p-4">
                   <span
                     class="px-3 py-1 rounded-full text-xs font-medium"
                     :class="predictionClass(traffic.prediction)"

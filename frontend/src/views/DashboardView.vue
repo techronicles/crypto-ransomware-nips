@@ -1,112 +1,148 @@
 <template>
-  <section>
-    <!-- Header with Refresh Button -->
-    <div class="mb-6 flex items-center justify-between">
-      <div>
-        <p class="text-slate-400">
-          Dashboard > Real‑time network security overview
-        </p>
-      </div>
-      <button
-        @click="loadDashboard"
-        :disabled="loading"
-        class="bg-slate-800 hover:bg-slate-700 transition px-5 py-3 rounded-xl font-medium disabled:opacity-50"
-      >
-        {{ loading ? "Refreshing..." : "Refresh" }}
-      </button>
-    </div>
+  <section class="space-y-6">
+   
 
-    <!-- Loading State (initial only) -->
-    <div v-if="loading && !dashboardLoaded" class="text-slate-400">
-      Loading dashboard data...
-    </div>
-
-    <!-- Error State -->
+    <!-- Error -->
     <div
-      v-else-if="error"
-      class="bg-red-500/10 border border-red-500/30 text-red-400 p-4 rounded-xl"
+      v-if="error"
+      class="rounded-2xl border border-red-400/30 bg-red-400/10 p-4 text-sm text-red-300"
     >
       {{ error }}
     </div>
 
-    <!-- Dashboard Content -->
+    <!-- Loading -->
+    <div
+      v-if="loading && !dashboardLoaded"
+      class="rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-slate-400"
+    >
+      Loading dashboard data...
+    </div>
+
     <div v-else>
       <!-- Summary Cards -->
-      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
+      <div class="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
         <StatCard
           title="Total Traffic"
-          :value="summary.total_traffic"
+          :value="summary.totalTraffic"
           subtitle="Packets analyzed"
         />
+
         <StatCard
           title="Suspicious Traffic"
-          :value="summary.suspicious_traffic"
+          :value="summary.suspiciousTraffic"
           subtitle="Requires attention"
           statusClass="text-yellow-400"
         />
+
         <StatCard
           title="Blocked IPs"
-          :value="summary.blocked_ips"
+          :value="summary.blockedIps"
           subtitle="Active blocks"
           statusClass="text-red-400"
         />
+
         <StatCard
           title="Model Accuracy"
-          :value="summary.model_accuracy + '%'"
-          :subtitle="summary.model_name"
+          :value="summary.modelAccuracy + '%'"
+          :subtitle="summary.modelName"
           statusClass="text-green-400"
         />
       </div>
 
-      <!-- Recent Alerts Table -->
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-        <h3 class="text-xl font-bold text-white mb-2">Recent Alerts</h3>
-        <p class="text-slate-400 mb-5">Latest suspicious network activities</p>
+      <!-- System strip -->
+      <div class="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-4">
+        <div class="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4">
+          <p class="text-xs text-slate-400">Backend</p>
+          <p class="mt-1 font-semibold text-emerald-300">Online</p>
+        </div>
 
-        <div class="overflow-x-auto">
+        <div class="rounded-2xl border border-sky-400/20 bg-sky-400/10 p-4">
+          <p class="text-xs text-slate-400">Database</p>
+          <p class="mt-1 font-semibold text-sky-300">Connected</p>
+        </div>
+
+        <div class="rounded-2xl border border-purple-400/20 bg-purple-400/10 p-4">
+          <p class="text-xs text-slate-400">Detection Engine</p>
+          <p class="mt-1 font-semibold text-purple-300">Active</p>
+        </div>
+
+        <div class="rounded-2xl border border-yellow-400/20 bg-yellow-400/10 p-4">
+          <p class="text-xs text-slate-400">Prevention Mode</p>
+          <p class="mt-1 font-semibold text-yellow-300">Log Only</p>
+        </div>
+      </div>
+
+      <!-- Recent Alerts -->
+      <div class="mt-8 rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+        <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 class="text-xl font-bold text-white">
+              Recent Alerts
+            </h3>
+            <p class="mt-1 text-sm text-slate-400">
+              Latest suspicious network activities detected by the system.
+            </p>
+          </div>
+
+          <span class="rounded-2xl border border-red-400/20 bg-red-400/10 px-4 py-2 text-sm font-medium text-red-300">
+            {{ alerts.length }} alerts
+          </span>
+        </div>
+
+        <div v-if="alerts.length === 0" class="rounded-2xl border border-white/10 p-6 text-center text-slate-400">
+          No recent alerts.
+        </div>
+
+        <div v-else class="overflow-x-auto">
           <table class="w-full text-sm">
-            <thead class="bg-slate-800 text-slate-300">
+            <thead class="bg-slate-900/80 text-slate-300">
               <tr>
-                <th scope="col" class="text-left p-4">Time</th>
-                <th scope="col" class="text-left p-4">Source IP</th>
-                <th scope="col" class="text-left p-4">Threat</th>
-                <th scope="col" class="text-left p-4">Severity</th>
-                <th scope="col" class="text-left p-4">Status</th>
+                <th class="text-left p-4">Time</th>
+                <th class="text-left p-4">Source IP</th>
+                <th class="text-left p-4">Threat</th>
+                <th class="text-left p-4">Severity</th>
+                <th class="text-left p-4">Status</th>
               </tr>
             </thead>
+
             <tbody>
               <tr
                 v-for="alert in alerts"
                 :key="alert.id"
-                class="border-t border-slate-800 hover:bg-slate-800/50"
+                class="border-t border-white/10 hover:bg-white/[0.03]"
               >
-                <td class="p-4">{{ formatTimestamp(alert.timestamp) }}</td>
-                <td class="p-4">{{ alert.source_ip || '—' }}</td>
-                <td class="p-4">{{ alert.threat_type || '—' }}</td>
+                <td class="p-4 text-slate-400">
+                  {{ formatTimestamp(alert.timestamp) }}
+                </td>
+
+                <td class="p-4 font-medium text-slate-200">
+                  {{ alert.sourceIp || '—' }}
+                </td>
+
+                <td class="p-4">
+                  {{ alert.threatType || '—' }}
+                </td>
+
                 <td class="p-4">
                   <span
-                    class="px-3 py-1 rounded-full text-xs font-medium"
+                    class="rounded-full px-3 py-1 text-xs font-medium"
                     :class="severityClass(alert.severity)"
                   >
                     {{ alert.severity || 'Unknown' }}
                   </span>
                 </td>
+
                 <td class="p-4">
                   <span
-                    class="px-3 py-1 rounded-full text-xs font-medium"
+                    class="rounded-full px-3 py-1 text-xs font-medium"
                     :class="statusClass(alert.status)"
                   >
                     {{ alert.status || 'New' }}
                   </span>
                 </td>
               </tr>
-              <tr v-if="alerts.length === 0">
-                <td colspan="5" class="text-center p-4 text-slate-400">
-                  No recent alerts.
-                </td>
-               </tr>
             </tbody>
-           </table>
+          </table>
         </div>
       </div>
     </div>
@@ -119,44 +155,66 @@ import { useRouter } from 'vue-router';
 import StatCard from '../components/StatCard.vue';
 import api from '../services/api';
 
-// --- State ---
-const loading = ref(false);
-const error = ref('');
-const dashboardLoaded = ref(false);  // tracks if we have ever loaded data
-const summary = ref({
-  total_traffic: 0,
-  suspicious_traffic: 0,
-  blocked_ips: 0,
-  model_accuracy: 0,
-  model_name: '',
-});
-const alerts = ref([]);
-let refreshInterval = null;
-
 const router = useRouter();
 
-// --- Helpers ---
-const formatTimestamp = (isoString) => {
-  if (!isoString) return '—';
-  try {
-    return new Intl.DateTimeFormat(undefined, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    }).format(new Date(isoString));
-  } catch {
-    return isoString;
+const loading = ref(false);
+const error = ref('');
+const dashboardLoaded = ref(false);
+const alerts = ref([]);
+
+const summary = ref({
+  totalTraffic: 0,
+  suspiciousTraffic: 0,
+  blockedIps: 0,
+  modelAccuracy: 0,
+  modelName: 'N/A',
+});
+
+let refreshInterval = null;
+
+const normalizeSummary = (data) => {
+  return {
+    totalTraffic: data.totalTraffic ?? data.total_traffic ?? 0,
+    suspiciousTraffic: data.suspiciousTraffic ?? data.suspicious_traffic ?? 0,
+    blockedIps: data.blockedIps ?? data.blocked_ips ?? 0,
+    modelAccuracy: data.modelAccuracy ?? data.model_accuracy ?? 0,
+    modelName: data.modelName ?? data.model_name ?? 'N/A',
+  };
+};
+
+const normalizeAlert = (alert) => {
+  return {
+    id: alert.id,
+    timestamp: alert.timestamp,
+    sourceIp: alert.sourceIp ?? alert.source_ip,
+    threatType: alert.threatType ?? alert.threat_type,
+    severity: alert.severity,
+    status: alert.status,
+  };
+};
+
+const formatTimestamp = (value) => {
+  if (!value) return '—';
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
   }
+
+  return new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
 };
 
 const severityClass = (severity) => {
   if (severity === 'High') return 'bg-red-500/20 text-red-400';
   if (severity === 'Medium') return 'bg-yellow-500/20 text-yellow-400';
   if (severity === 'Low') return 'bg-green-500/20 text-green-400';
-  return 'bg-gray-500/20 text-gray-400';
+  return 'bg-slate-500/20 text-slate-400';
 };
 
 const statusClass = (status) => {
@@ -167,24 +225,18 @@ const statusClass = (status) => {
     Resolved: 'bg-green-500/20 text-green-400',
     'False Positive': 'bg-slate-500/20 text-slate-300',
   };
+
   return classes[status] || 'bg-slate-500/20 text-slate-400';
 };
 
-// --- Auth Handling with Message for Login Page ---
-const clearAuthAndRedirect = (reason) => {
-  // Store the warning message so login page can display it
-  sessionStorage.setItem('authWarning', reason);
+const clearAuthAndRedirect = (message) => {
+  sessionStorage.setItem('authWarning', message);
   localStorage.removeItem('access_token');
   sessionStorage.removeItem('access_token');
 
-  error.value = `${reason} Redirecting to login...`;
-
-  setTimeout(() => {
-    router.push('/login');
-  }, 1500);
+  router.push('/login');
 };
 
-// --- Load Dashboard Data ---
 const loadDashboard = async () => {
   if (loading.value) return;
 
@@ -197,53 +249,55 @@ const loadDashboard = async () => {
       api.get('/api/v1/alerts'),
     ]);
 
-    // Validate and set summary
-    const summaryData = summaryResponse.data;
-    summary.value = {
-      total_traffic: summaryData.total_traffic ?? 0,
-      suspicious_traffic: summaryData.suspicious_traffic ?? 0,
-      blocked_ips: summaryData.blocked_ips ?? 0,
-      model_accuracy: summaryData.model_accuracy ?? 0,
-      model_name: summaryData.model_name ?? 'N/A',
-    };
+    summary.value = normalizeSummary(summaryResponse.data);
 
-    // Ensure alerts is an array
-    alerts.value = Array.isArray(alertsResponse.data) ? alertsResponse.data : [];
+    const alertsData = Array.isArray(alertsResponse.data)
+      ? alertsResponse.data
+      : [];
+
+    alerts.value = alertsData.map(normalizeAlert);
+
     dashboardLoaded.value = true;
   } catch (err) {
     console.error('Dashboard load error:', err);
 
     if (err.response?.status === 401) {
       clearAuthAndRedirect('Your session has expired. Please log in again.');
-    } else if (err.response?.status === 403) {
-      clearAuthAndRedirect('Access forbidden. Your token may be invalid or you lack permissions.');
-    } else if (err.code === 'ERR_NETWORK') {
-      error.value = 'Cannot connect to backend. Is the server running?';
-    } else {
-      error.value = 'Failed to fetch dashboard data. Please try again later.';
+      return;
     }
+
+    if (err.response?.status === 403) {
+      clearAuthAndRedirect('Access forbidden. Please log in again.');
+      return;
+    }
+
+    if (err.code === 'ERR_NETWORK') {
+      error.value = 'Cannot connect to backend. Is the server running?';
+      return;
+    }
+
+    error.value = 'Failed to fetch dashboard data. Please try again later.';
   } finally {
     loading.value = false;
   }
 };
 
-// --- Polling (every 30 seconds) ---
 const startPolling = () => {
-  if (refreshInterval) clearInterval(refreshInterval);
   refreshInterval = setInterval(() => {
-    if (!loading.value && !error.value?.includes('Redirecting')) {
+    if (!loading.value) {
       loadDashboard();
     }
   }, 30000);
 };
 
-// --- Lifecycle ---
 onMounted(() => {
   loadDashboard();
   startPolling();
 });
 
 onUnmounted(() => {
-  if (refreshInterval) clearInterval(refreshInterval);
+  if (refreshInterval) {
+    clearInterval(refreshInterval);
+  }
 });
 </script>
