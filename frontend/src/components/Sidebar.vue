@@ -1,7 +1,7 @@
 <template>
   <aside
     :class="[
-      'min-h-screen bg-[#050816] border-r border-white/10 flex flex-col transition-all duration-300 ease-in-out overflow-hidden',
+      'sticky top-0 h-screen bg-[#050816] border-r border-white/10 flex flex-col transition-all duration-300 ease-in-out overflow-hidden',
       collapsed ? 'w-[72px] px-3 py-5' : 'w-72 p-5'
     ]"
   >
@@ -52,7 +52,7 @@
     </div>
 
     <!-- Navigation -->
-    <nav class="space-y-1 flex-1">
+    <nav class="space-y-1 flex-1 overflow-y-auto pr-1">
       <RouterLink
         v-for="item in links"
         :key="item.path"
@@ -92,10 +92,10 @@
         </div>
       </Transition>
 
-      <!-- Add User -->
+      <!-- Hii itakuwa Manage User -->
       <RouterLink
         to="/register"
-        :title="collapsed ? 'Add User' : ''"
+        :title="collapsed ? 'Manage User' : ''"
         :class="[
           'flex items-center justify-center rounded-2xl border border-sky-400/20 bg-sky-400/10 text-sm font-medium text-sky-300 transition hover:bg-sky-500 hover:text-white hover:border-sky-500',
           collapsed ? 'h-11 w-11' : 'w-full gap-3 px-4 py-3',
@@ -107,7 +107,7 @@
           <path stroke-linecap="round" stroke-linejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
         </svg>
         <Transition name="fade">
-          <span v-if="!collapsed">Add User</span>
+          <span v-if="!collapsed">Manage User</span>
         </Transition>
       </RouterLink>
 

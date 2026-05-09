@@ -1,9 +1,12 @@
 <template>
   <section>
     <div class="mb-6 flex justify-between items-center">
-      <p class="text-slate-400">Traffic Monitor > Captured network traffic and ML predictions</p>
+      <p class="text-slate-400">
+        Traffic Monitor > Captured network traffic and ML predictions
+      </p>
+
       <button
-        @click="loadTraffic"
+        @click="refreshTraffic"
         :disabled="loading"
         class="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-sm transition disabled:opacity-50"
       >
@@ -11,7 +14,7 @@
       </button>
     </div>
 
-    <!-- Loading State (only on initial load) -->
+    <!-- Loading State -->
     <div v-if="loading && trafficRecords.length === 0" class="text-slate-400">
       Loading traffic records...
     </div>
@@ -32,19 +35,42 @@
           <p class="text-slate-400 text-sm">TCP Traffic</p>
           <h3 class="text-3xl font-bold mt-2">{{ tcpCount }}</h3>
         </div>
+
         <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
           <p class="text-slate-400 text-sm">UDP Traffic</p>
           <h3 class="text-3xl font-bold mt-2">{{ udpCount }}</h3>
         </div>
+
         <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
           <p class="text-slate-400 text-sm">Malicious Predictions</p>
-          <h3 class="text-3xl font-bold mt-2 text-red-400">{{ maliciousCount }}</h3>
+          <h3 class="text-3xl font-bold mt-2 text-red-400">
+            {{ maliciousCount }}
+          </h3>
         </div>
       </div>
 
       <!-- Traffic Table -->
       <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-        <div class="overflow-x-auto">
+        <div class="mb-5 flex items-center justify-between">
+          <div>
+            <h3 class="text-lg font-semibold text-white">Traffic Records</h3>
+            <p class="mt-1 text-sm text-slate-400">
+              Page {{ pagination.page }} of {{ pagination.pages }}
+            </p>
+          </div>
+
+          <span
+            class="px-4 py-2 rounded-xl text-sm bg-sky-500/20 text-sky-400"
+          >
+            {{ pagination.total }} records
+          </span>
+        </div>
+
+        <div v-if="trafficRecords.length === 0" class="text-slate-400">
+          No traffic records found.
+        </div>
+
+        <div v-else class="overflow-x-auto">
           <table class="w-full text-sm">
             <thead class="bg-slate-800 text-slate-300">
               <tr>
@@ -56,29 +82,34 @@
                 <th scope="col" class="text-left p-4">Prediction</th>
               </tr>
             </thead>
+
             <tbody>
               <tr
                 v-for="traffic in trafficRecords"
                 :key="traffic.id"
                 class="border-t border-slate-800 hover:bg-slate-800/50"
               >
-                <td class="p-4">{{ formatTimestamp(traffic.timestamp) }}</td>
                 <td class="p-4">
-                    {{ traffic.sourceIp || traffic.source_ip || '—' }}
-                  </td>
+                  {{ formatTimestamp(traffic.timestamp) }}
+                </td>
 
-                  <td class="p-4">
-                    {{ traffic.destinationIp || traffic.destination_ip || '—' }}
-                  </td>
+                <td class="p-4">
+                  {{ traffic.sourceIp || traffic.source_ip || '—' }}
+                </td>
 
-                  <td class="p-4">
-                    {{ traffic.protocol || '—' }}
-                  </td>
+                <td class="p-4">
+                  {{ traffic.destinationIp || traffic.destination_ip || '—' }}
+                </td>
 
-                  <td class="p-4">
-                    {{ traffic.packetSize ?? traffic.packet_size ?? '—' }} bytes
-                  </td>
-                                  <td class="p-4">
+                <td class="p-4">
+                  {{ traffic.protocol || '—' }}
+                </td>
+
+                <td class="p-4">
+                  {{ traffic.packetSize ?? traffic.packet_size ?? '—' }} bytes
+                </td>
+
+                <td class="p-4">
                   <span
                     class="px-3 py-1 rounded-full text-xs font-medium"
                     :class="predictionClass(traffic.prediction)"
@@ -87,13 +118,53 @@
                   </span>
                 </td>
               </tr>
-              <tr v-if="trafficRecords.length === 0">
-                <td colspan="6" class="text-center p-4 text-slate-400">
-                  No traffic records found.
-                </td>
-              </tr>
             </tbody>
           </table>
+
+          <!-- Backend Pagination Controls -->
+          <div
+            v-if="pagination.pages > 1"
+            class="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <p class="text-sm text-slate-400">
+              Showing {{ trafficRecords.length }} records on page
+              {{ pagination.page }} of {{ pagination.pages }}
+              · Total {{ pagination.total }}
+            </p>
+
+            <div class="flex items-center gap-2">
+              <button
+                @click="goToPage(pagination.page - 1)"
+                :disabled="pagination.page === 1 || loading"
+                class="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-slate-300 transition hover:bg-white/[0.08] disabled:opacity-40"
+              >
+                Previous
+              </button>
+
+              <button
+                v-for="page in visiblePages"
+                :key="page"
+                @click="goToPage(page)"
+                :disabled="loading"
+                :class="[
+                  'rounded-xl border px-4 py-2 text-sm transition disabled:opacity-40',
+                  page === pagination.page
+                    ? 'border-sky-400/30 bg-sky-400 text-slate-950'
+                    : 'border-white/10 bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]'
+                ]"
+              >
+                {{ page }}
+              </button>
+
+              <button
+                @click="goToPage(pagination.page + 1)"
+                :disabled="pagination.page === pagination.pages || loading"
+                class="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-slate-300 transition hover:bg-white/[0.08] disabled:opacity-40"
+              >
+                Next
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -102,27 +173,55 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue';
-import { useRouter } from 'vue-router'; // optional – install vue-router if not already
+import { useRouter } from 'vue-router';
 import api from '../services/api';
 
 // --- State ---
 const loading = ref(false);
 const error = ref('');
 const trafficRecords = ref([]);
+
+const currentPage = ref(1);
+const itemsPerPage = ref(10);
+
+const pagination = ref({
+  page: 1,
+  limit: 10,
+  total: 0,
+  pages: 1,
+});
+
 let refreshInterval = null;
 
-// Router instance (undefined if not using Vue Router)
 const router = useRouter();
 
-// --- Computed: Summary Stats (safe) ---
+// --- Visible page buttons ---
+const visiblePages = computed(() => {
+  const total = pagination.value.pages || 1;
+  const current = pagination.value.page || 1;
+  const range = [];
+
+  const start = Math.max(1, current - 1);
+  const end = Math.min(total, current + 1);
+
+  for (let page = start; page <= end; page += 1) {
+    range.push(page);
+  }
+
+  return range;
+});
+
+// --- Computed: Summary Stats for current page ---
 const tcpCount = computed(() =>
-  trafficRecords.value.filter(item => item?.protocol === 'TCP').length
+  trafficRecords.value.filter((item) => item?.protocol === 'TCP').length
 );
+
 const udpCount = computed(() =>
-  trafficRecords.value.filter(item => item?.protocol === 'UDP').length
+  trafficRecords.value.filter((item) => item?.protocol === 'UDP').length
 );
+
 const maliciousCount = computed(() =>
-  trafficRecords.value.filter(item => item?.prediction === 'Malicious').length
+  trafficRecords.value.filter((item) => item?.prediction === 'Malicious').length
 );
 
 // --- Helper: Prediction Styling ---
@@ -133,72 +232,84 @@ const predictionClass = (prediction) => {
     Benign: 'bg-green-500/20 text-green-400',
     Normal: 'bg-green-500/20 text-green-400',
   };
+
   return classes[prediction] || 'bg-gray-500/20 text-gray-400';
 };
 
 // --- Helper: Format Timestamp ---
 const formatTimestamp = (isoString) => {
   if (!isoString) return '—';
-  try {
-    return new Intl.DateTimeFormat(undefined, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    }).format(new Date(isoString));
-  } catch {
+
+  const date = new Date(isoString);
+
+  if (Number.isNaN(date.getTime())) {
     return isoString;
   }
+
+  return new Intl.DateTimeFormat(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).format(date);
 };
 
-// --- Clear authentication data (customise based on your storage) ---
+// --- Auth Redirect ---
 const clearAuthAndRedirect = (reason) => {
-  // Remove token from localStorage/sessionStorage
   localStorage.removeItem('access_token');
   sessionStorage.removeItem('access_token');
-  // If you use Vuex/Pinia, also clear auth state
-  // e.g., authStore.logout();
 
   error.value = `${reason} Redirecting to login...`;
 
-  // Give user a moment to read the message
   setTimeout(() => {
-    if (router) {
-      router.push('/login');
-    } else {
-      window.location.href = '/login';
-    }
+    router.push('/login');
   }, 1500);
 };
 
-// --- Main Data Fetching ---
+// --- Main Data Fetching using backend pagination ---
 const loadTraffic = async () => {
   if (loading.value) return;
 
   loading.value = true;
-  // Don't clear existing traffic on background refresh – keeps UI responsive
-  // Only clear error if we succeed
-  const previousError = error.value;
   error.value = '';
 
   try {
-    const response = await api.get('/api/v1/traffic');
-    const data = response.data;
+    const response = await api.get('/api/v1/traffic', {
+      params: {
+        page: currentPage.value,
+        limit: itemsPerPage.value,
+      },
+    });
 
-    // Validate response
-    trafficRecords.value = Array.isArray(data) ? data : [];
-    // Clear any previous error on success
-    if (previousError) error.value = '';
+    const responseData = response.data;
+
+    // Backend pagination shape:
+    // { data: [...], pagination: { page, limit, total, pages } }
+    trafficRecords.value = Array.isArray(responseData?.data)
+      ? responseData.data
+      : Array.isArray(responseData)
+        ? responseData
+        : [];
+
+    pagination.value = responseData?.pagination || {
+      page: currentPage.value,
+      limit: itemsPerPage.value,
+      total: trafficRecords.value.length,
+      pages: 1,
+    };
+
+    currentPage.value = pagination.value.page || currentPage.value;
   } catch (err) {
     console.error('Traffic fetch error:', err);
 
-    // Handle authentication/authorization errors (401 OR 403)
     if (err.response?.status === 401) {
       clearAuthAndRedirect('Your session has expired.');
     } else if (err.response?.status === 403) {
-      clearAuthAndRedirect('Access forbidden. Your token may be invalid or you lack permissions.');
+      clearAuthAndRedirect(
+        'Access forbidden. Your token may be invalid or you lack permissions.'
+      );
     } else if (err.code === 'ERR_NETWORK') {
       error.value = 'Cannot connect to backend. Is the server running?';
     } else {
@@ -209,9 +320,28 @@ const loadTraffic = async () => {
   }
 };
 
-// --- Polling (every 30 seconds) ---
+const refreshTraffic = async () => {
+  currentPage.value = 1;
+  await loadTraffic();
+};
+
+const goToPage = async (page) => {
+  if (
+    page < 1 ||
+    page > pagination.value.pages ||
+    page === pagination.value.page
+  ) {
+    return;
+  }
+
+  currentPage.value = page;
+  await loadTraffic();
+};
+
+// --- Polling ---
 const startPolling = () => {
   if (refreshInterval) clearInterval(refreshInterval);
+
   refreshInterval = setInterval(() => {
     if (!loading.value && !error.value?.includes('Redirecting')) {
       loadTraffic();

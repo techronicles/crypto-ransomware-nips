@@ -9,12 +9,13 @@
 
       <div class="flex gap-3">
         <button
-          @click="loadBlockedIps"
+          @click="refreshBlockedIps"
           :disabled="loading"
           class="bg-slate-700 hover:bg-slate-600 transition px-5 py-3 rounded-xl font-medium disabled:opacity-50"
         >
           {{ loading ? "Refreshing..." : "Refresh" }}
         </button>
+
         <button
           @click="showForm = !showForm"
           class="bg-blue-600 hover:bg-blue-700 transition px-5 py-3 rounded-xl font-medium"
@@ -29,11 +30,16 @@
       v-if="showForm"
       class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mb-6"
     >
-      <h3 class="text-lg font-bold text-white mb-4">Add Manual IP Block</h3>
+      <h3 class="text-lg font-bold text-white mb-4">
+        Add Manual IP Block
+      </h3>
 
-      <form @submit.prevent="submitBlockIp" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <form
+        @submit.prevent="submitBlockIp"
+        class="grid grid-cols-1 md:grid-cols-3 gap-4"
+      >
         <input
-          v-model="form.ip_address"
+          v-model.trim="form.ip_address"
           type="text"
           placeholder="IP Address e.g. 192.168.1.100"
           class="bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-blue-500"
@@ -41,7 +47,7 @@
         />
 
         <input
-          v-model="form.reason"
+          v-model.trim="form.reason"
           type="text"
           placeholder="Reason for blocking"
           class="bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-blue-500"
@@ -58,7 +64,7 @@
       </form>
     </div>
 
-    <!-- Loading State (initial only) -->
+    <!-- Loading State -->
     <div v-if="loading && blockedIps.length === 0" class="text-slate-400">
       Loading blocked IPs...
     </div>
@@ -76,9 +82,16 @@
       v-else
       class="bg-slate-900 border border-slate-800 rounded-2xl p-6"
     >
-      <div class="mb-5">
+      <div class="mb-5 flex items-center justify-between">
+        <div>
+          <h3 class="text-lg font-semibold text-white">Blocked IP Records</h3>
+          <p class="mt-1 text-sm text-slate-400">
+            Page {{ pagination.page }} of {{ pagination.pages }}
+          </p>
+        </div>
+
         <span class="bg-red-500/20 text-red-400 px-4 py-2 rounded-xl text-sm">
-          {{ blockedIps.length }} blocked IPs
+          {{ pagination.total }} blocked IPs
         </span>
       </div>
 
@@ -101,14 +114,21 @@
           <tbody>
             <tr
               v-for="ip in blockedIps"
-              :key="ip.id"
+              :key="ip.id || ip.ip_address || ip.ipAddress"
               class="border-t border-slate-800 hover:bg-slate-800/50"
             >
               <td class="p-4 font-medium text-slate-200">
-                {{ ip.ip_address || '—' }}
+                {{ ip.ip_address || ip.ipAddress || '—' }}
               </td>
-              <td class="p-4">{{ ip.reason || '—' }}</td>
-              <td class="p-4">{{ formatTimestamp(ip.blocked_at) }}</td>
+
+              <td class="p-4">
+                {{ ip.reason || '—' }}
+              </td>
+
+              <td class="p-4">
+                {{ formatTimestamp(ip.blocked_at || ip.blockedAt) }}
+              </td>
+
               <td class="p-4">
                 <span
                   class="px-3 py-1 rounded-full text-xs font-medium"
@@ -117,6 +137,7 @@
                   {{ ip.mode || 'Manual' }}
                 </span>
               </td>
+
               <td class="p-4">
                 <span
                   class="px-3 py-1 rounded-full text-xs font-medium"
@@ -128,14 +149,59 @@
             </tr>
           </tbody>
         </table>
+
+        <!-- Backend Pagination Controls -->
+        <div
+          v-if="pagination.pages > 1"
+          class="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <p class="text-sm text-slate-400">
+            Showing {{ blockedIps.length }} records on page
+            {{ pagination.page }} of {{ pagination.pages }}
+            · Total {{ pagination.total }}
+          </p>
+
+          <div class="flex items-center gap-2">
+            <button
+              @click="goToPage(pagination.page - 1)"
+              :disabled="pagination.page === 1 || loading"
+              class="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-slate-300 transition hover:bg-white/[0.08] disabled:opacity-40"
+            >
+              Previous
+            </button>
+
+            <button
+              v-for="page in visiblePages"
+              :key="page"
+              @click="goToPage(page)"
+              :disabled="loading"
+              :class="[
+                'rounded-xl border px-4 py-2 text-sm transition disabled:opacity-40',
+                page === pagination.page
+                  ? 'border-sky-400/30 bg-sky-400 text-slate-950'
+                  : 'border-white/10 bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]'
+              ]"
+            >
+              {{ page }}
+            </button>
+
+            <button
+              @click="goToPage(pagination.page + 1)"
+              :disabled="pagination.page === pagination.pages || loading"
+              class="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-slate-300 transition hover:bg-white/[0.08] disabled:opacity-40"
+            >
+              Next
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </section>
 </template>
 
 <script setup>
-import { onMounted, onUnmounted, ref } from 'vue';
-import { useRouter } from 'vue-router'; // optional – install if not already
+import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import api from '../services/api';
 
 // --- State ---
@@ -144,32 +210,60 @@ const submitting = ref(false);
 const error = ref('');
 const showForm = ref(false);
 const blockedIps = ref([]);
+
+const currentPage = ref(1);
+const itemsPerPage = ref(10);
+
+const pagination = ref({
+  page: 1,
+  limit: 10,
+  total: 0,
+  pages: 1,
+});
+
 let refreshInterval = null;
 
-// Form state
 const form = ref({
   ip_address: '',
   reason: '',
 });
 
-// Router (if using Vue Router, otherwise undefined)
 const router = useRouter();
 
-// --- Helper: Format Timestamp (ISO → readable) ---
+// --- Visible page buttons ---
+const visiblePages = computed(() => {
+  const total = pagination.value.pages || 1;
+  const current = pagination.value.page || 1;
+  const range = [];
+
+  const start = Math.max(1, current - 1);
+  const end = Math.min(total, current + 1);
+
+  for (let page = start; page <= end; page += 1) {
+    range.push(page);
+  }
+
+  return range;
+});
+
+// --- Helper: Format Timestamp ---
 const formatTimestamp = (isoString) => {
   if (!isoString) return '—';
-  try {
-    return new Intl.DateTimeFormat(undefined, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    }).format(new Date(isoString));
-  } catch {
+
+  const date = new Date(isoString);
+
+  if (Number.isNaN(date.getTime())) {
     return isoString;
   }
+
+  return new Intl.DateTimeFormat(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).format(date);
 };
 
 // --- Styling Helpers ---
@@ -185,23 +279,17 @@ const statusClass = (status) => {
 
 // --- Authentication & Redirect ---
 const clearAuthAndRedirect = (reason) => {
-  // Clear stored tokens (adjust according to your auth implementation)
   localStorage.removeItem('access_token');
   sessionStorage.removeItem('access_token');
-  // If you use Vuex/Pinia, also clear auth store here
 
   error.value = `${reason} Redirecting to login...`;
 
   setTimeout(() => {
-    if (router) {
-      router.push('/login');
-    } else {
-      window.location.href = '/login';
-    }
+    router.push('/login');
   }, 1500);
 };
 
-// --- Fetch Blocked IPs ---
+// --- Fetch Blocked IPs using backend pagination ---
 const loadBlockedIps = async () => {
   if (loading.value) return;
 
@@ -209,17 +297,40 @@ const loadBlockedIps = async () => {
   error.value = '';
 
   try {
-    const response = await api.get('/api/v1/blocked_ips');
-    const data = response.data;
-    // Ensure data is an array
-    blockedIps.value = Array.isArray(data) ? data : [];
+    const response = await api.get('/api/v1/blocked_ips', {
+      params: {
+        page: currentPage.value,
+        limit: itemsPerPage.value,
+      },
+    });
+
+    const responseData = response.data;
+
+    // Expected backend pagination shape:
+    // { data: [...], pagination: { page, limit, total, pages } }
+    blockedIps.value = Array.isArray(responseData?.data)
+      ? responseData.data
+      : Array.isArray(responseData)
+        ? responseData
+        : [];
+
+    pagination.value = responseData?.pagination || {
+      page: currentPage.value,
+      limit: itemsPerPage.value,
+      total: blockedIps.value.length,
+      pages: 1,
+    };
+
+    currentPage.value = pagination.value.page || currentPage.value;
   } catch (err) {
     console.error('Load blocked IPs error:', err);
 
     if (err.response?.status === 401) {
       clearAuthAndRedirect('Your session has expired.');
     } else if (err.response?.status === 403) {
-      clearAuthAndRedirect('Access forbidden. Your token may be invalid or you lack permissions.');
+      clearAuthAndRedirect(
+        'Access forbidden. Your token may be invalid or you lack permissions.'
+      );
     } else if (err.code === 'ERR_NETWORK') {
       error.value = 'Cannot connect to backend. Is the server running?';
     } else {
@@ -230,6 +341,24 @@ const loadBlockedIps = async () => {
   }
 };
 
+const refreshBlockedIps = async () => {
+  currentPage.value = 1;
+  await loadBlockedIps();
+};
+
+const goToPage = async (page) => {
+  if (
+    page < 1 ||
+    page > pagination.value.pages ||
+    page === pagination.value.page
+  ) {
+    return;
+  }
+
+  currentPage.value = page;
+  await loadBlockedIps();
+};
+
 // --- Submit New Block ---
 const submitBlockIp = async () => {
   if (submitting.value) return;
@@ -238,26 +367,34 @@ const submitBlockIp = async () => {
   error.value = '';
 
   try {
-    const response = await api.post('/api/v1/blocked_ips', {
+    await api.post('/api/v1/blocked_ips', {
       ip_address: form.value.ip_address,
       reason: form.value.reason,
     });
 
-    // Prepend new block to the list
-    blockedIps.value.unshift(response.data);
+    form.value = {
+      ip_address: '',
+      reason: '',
+    };
 
-    // Reset form and hide it
-    form.value = { ip_address: '', reason: '' };
     showForm.value = false;
+
+    currentPage.value = 1;
+    await loadBlockedIps();
   } catch (err) {
     console.error('Submit block IP error:', err);
 
     if (err.response?.status === 401) {
       clearAuthAndRedirect('Your session has expired.');
     } else if (err.response?.status === 403) {
-      clearAuthAndRedirect('Access forbidden. Your token may be invalid or you lack permissions.');
+      clearAuthAndRedirect(
+        'Access forbidden. Your token may be invalid or you lack permissions.'
+      );
     } else if (err.response?.status === 400) {
-      error.value = err.response.data?.message || 'Invalid IP address or missing data.';
+      error.value =
+        err.response.data?.message ||
+        err.response.data?.detail ||
+        'Invalid IP address or missing data.';
     } else if (err.code === 'ERR_NETWORK') {
       error.value = 'Cannot connect to backend. Is the server running?';
     } else {
@@ -268,11 +405,11 @@ const submitBlockIp = async () => {
   }
 };
 
-// --- Polling (every 30 seconds) ---
+// --- Polling ---
 const startPolling = () => {
   if (refreshInterval) clearInterval(refreshInterval);
+
   refreshInterval = setInterval(() => {
-    // Don't poll if we're already loading, submitting, or in a redirect state
     if (!loading.value && !submitting.value && !error.value?.includes('Redirecting')) {
       loadBlockedIps();
     }

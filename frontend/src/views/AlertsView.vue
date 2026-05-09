@@ -8,7 +8,7 @@
       </div>
 
       <button
-        @click="loadAlerts"
+        @click="refreshAlerts"
         :disabled="loading"
         class="bg-slate-800 hover:bg-slate-700 transition px-5 py-3 rounded-xl font-medium disabled:opacity-50"
       >
@@ -35,12 +35,17 @@
       class="bg-slate-900 border border-slate-800 rounded-2xl p-6"
     >
       <div class="flex items-center justify-between mb-5">
-        <h3 class="text-lg font-semibold text-white">All Alerts</h3>
+        <div>
+          <h3 class="text-lg font-semibold text-white">All Alerts</h3>
+          <p class="mt-1 text-sm text-slate-400">
+            Page {{ pagination.page }} of {{ pagination.pages }}
+          </p>
+        </div>
 
         <span
           class="px-4 py-2 rounded-xl text-sm bg-red-500/20 text-red-400"
         >
-          {{ alerts.length }} alerts
+          {{ pagination.total }} alerts
         </span>
       </div>
 
@@ -69,7 +74,8 @@
               class="border-t border-slate-800 hover:bg-slate-800/50 transition"
             >
               <td class="p-4">{{ formatTimestamp(alert.timestamp) }}</td>
-             <td class="p-4 font-medium text-slate-200">
+
+              <td class="p-4 font-medium text-slate-200">
                 {{ alert.sourceIp || alert.source_ip || '—' }}
               </td>
 
@@ -80,6 +86,7 @@
               <td class="p-4">
                 {{ alert.threatType || alert.threat_type || '—' }}
               </td>
+
               <td class="p-4">
                 <span
                   class="px-3 py-1 rounded-full text-xs font-medium"
@@ -88,6 +95,7 @@
                   {{ alert.severity || 'Unknown' }}
                 </span>
               </td>
+
               <td class="p-4">
                 <span
                   class="px-3 py-1 rounded-full text-xs font-medium"
@@ -96,6 +104,7 @@
                   {{ alert.status || 'New' }}
                 </span>
               </td>
+
               <td class="p-4">
                 <div class="flex flex-wrap gap-2">
                   <button
@@ -126,6 +135,50 @@
             </tr>
           </tbody>
         </table>
+
+        <!-- Backend Pagination Controls -->
+        <div
+          v-if="pagination.pages > 1"
+          class="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <p class="text-sm text-slate-400">
+            Showing {{ alerts.length }} records on page {{ pagination.page }}
+            of {{ pagination.pages }} · Total {{ pagination.total }}
+          </p>
+
+          <div class="flex items-center gap-2">
+            <button
+              @click="goToPage(pagination.page - 1)"
+              :disabled="pagination.page === 1 || loading"
+              class="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-slate-300 transition hover:bg-white/[0.08] disabled:opacity-40"
+            >
+              Previous
+            </button>
+
+            <button
+              v-for="page in visiblePages"
+              :key="page"
+              @click="goToPage(page)"
+              :disabled="loading"
+              :class="[
+                'rounded-xl border px-4 py-2 text-sm transition disabled:opacity-40',
+                page === pagination.page
+                  ? 'border-sky-400/30 bg-sky-400 text-slate-950'
+                  : 'border-white/10 bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]'
+              ]"
+            >
+              {{ page }}
+            </button>
+
+            <button
+              @click="goToPage(pagination.page + 1)"
+              :disabled="pagination.page === pagination.pages || loading"
+              class="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-slate-300 transition hover:bg-white/[0.08] disabled:opacity-40"
+            >
+              Next
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -140,8 +193,8 @@
 </template>
 
 <script setup>
-import { onMounted, onUnmounted, ref } from 'vue';
-import { useRouter } from 'vue-router'; // optional – install if not already
+import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import api from '../services/api';
 
 // --- State ---
@@ -149,28 +202,57 @@ const loading = ref(false);
 const error = ref('');
 const successMessage = ref('');
 const alerts = ref([]);
-const updatingAlertId = ref(null); // prevent concurrent updates on same alert
+const updatingAlertId = ref(null);
+
+const currentPage = ref(1);
+const itemsPerPage = ref(10);
+
+const pagination = ref({
+  page: 1,
+  limit: 10,
+  total: 0,
+  pages: 1,
+});
+
 let refreshInterval = null;
 let successTimeout = null;
 
-// Router (if using Vue Router, otherwise undefined)
 const router = useRouter();
 
-// --- Helper: Format Timestamp (ISO → readable) ---
+// --- Visible page buttons ---
+const visiblePages = computed(() => {
+  const total = pagination.value.pages || 1;
+  const current = pagination.value.page || 1;
+  const range = [];
+
+  const start = Math.max(1, current - 1);
+  const end = Math.min(total, current + 1);
+
+  for (let page = start; page <= end; page += 1) {
+    range.push(page);
+  }
+
+  return range;
+});
+
+// --- Helper: Format Timestamp ---
 const formatTimestamp = (isoString) => {
   if (!isoString) return '—';
-  try {
-    return new Intl.DateTimeFormat(undefined, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    }).format(new Date(isoString));
-  } catch {
+
+  const date = new Date(isoString);
+
+  if (Number.isNaN(date.getTime())) {
     return isoString;
   }
+
+  return new Intl.DateTimeFormat(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).format(date);
 };
 
 // --- Styling Helpers ---
@@ -189,6 +271,7 @@ const statusClass = (status) => {
     Resolved: 'bg-green-500/20 text-green-400',
     'False Positive': 'bg-slate-500/20 text-slate-300',
   };
+
   return classes[status] || 'bg-slate-500/20 text-slate-400';
 };
 
@@ -200,15 +283,11 @@ const clearAuthAndRedirect = (reason) => {
   error.value = `${reason} Redirecting to login...`;
 
   setTimeout(() => {
-    if (router) {
-      router.push('/login');
-    } else {
-      window.location.href = '/login';
-    }
+    router.push('/login');
   }, 1500);
 };
 
-// --- Fetch Alerts ---
+// --- Fetch Alerts using backend pagination ---
 const loadAlerts = async () => {
   if (loading.value) return;
 
@@ -216,9 +295,31 @@ const loadAlerts = async () => {
   error.value = '';
 
   try {
-    const response = await api.get('/api/v1/alerts');
-    const data = response.data;
-    alerts.value = Array.isArray(data) ? data : [];
+    const response = await api.get('/api/v1/alerts', {
+      params: {
+        page: currentPage.value,
+        limit: itemsPerPage.value,
+      },
+    });
+
+    const responseData = response.data;
+
+    // Backend pagination shape:
+    // { data: [...], pagination: { page, limit, total, pages } }
+    alerts.value = Array.isArray(responseData?.data)
+      ? responseData.data
+      : Array.isArray(responseData)
+        ? responseData
+        : [];
+
+    pagination.value = responseData?.pagination || {
+      page: currentPage.value,
+      limit: itemsPerPage.value,
+      total: alerts.value.length,
+      pages: 1,
+    };
+
+    currentPage.value = pagination.value.page || currentPage.value;
   } catch (err) {
     console.error('Load alerts error:', err);
 
@@ -236,22 +337,33 @@ const loadAlerts = async () => {
   }
 };
 
+const refreshAlerts = async () => {
+  currentPage.value = 1;
+  await loadAlerts();
+};
+
+const goToPage = async (page) => {
+  if (page < 1 || page > pagination.value.pages || page === pagination.value.page) {
+    return;
+  }
+
+  currentPage.value = page;
+  await loadAlerts();
+};
+
 // --- Update Alert Status ---
 const updateStatus = async (alertId, status) => {
-  // Prevent multiple updates on the same alert
   if (updatingAlertId.value === alertId) return;
 
   updatingAlertId.value = alertId;
   error.value = '';
   successMessage.value = '';
 
-  // Clear any existing success timeout
   if (successTimeout) clearTimeout(successTimeout);
 
   try {
     const response = await api.patch(`/api/v1/alerts/${alertId}/status`, { status });
 
-    // Update alert in the list
     alerts.value = alerts.value.map((alert) =>
       alert.id === alertId ? response.data : alert
     );
@@ -278,11 +390,11 @@ const updateStatus = async (alertId, status) => {
   }
 };
 
-// --- Polling (every 30 seconds) ---
+// --- Polling ---
 const startPolling = () => {
   if (refreshInterval) clearInterval(refreshInterval);
+
   refreshInterval = setInterval(() => {
-    // Don't poll during update or redirect
     if (!loading.value && !updatingAlertId.value && !error.value?.includes('Redirecting')) {
       loadAlerts();
     }
