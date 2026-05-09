@@ -541,7 +541,7 @@ const toggleUserStatus = async (user) => {
   try {
     const nextStatus = !isUserActive(user);
 
-    await api.patch('/api/v1/edit_user', {
+    await api.put('/api/v1/edit_user', {
       username,
       is_active: nextStatus,
     });

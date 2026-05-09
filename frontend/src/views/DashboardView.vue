@@ -251,9 +251,11 @@ const loadDashboard = async () => {
 
     summary.value = normalizeSummary(summaryResponse.data);
 
-    const alertsData = Array.isArray(alertsResponse.data)
-      ? alertsResponse.data
-      : [];
+    const alertsData = Array.isArray(alertsResponse.data?.data)
+  ? alertsResponse.data.data
+  : Array.isArray(alertsResponse.data)
+    ? alertsResponse.data
+    : [];
 
     alerts.value = alertsData.map(normalizeAlert);
 
