@@ -21,34 +21,7 @@
         </Transition>
       </div>
 
-      <Transition name="fade">
-        <div
-          v-if="!collapsed"
-          class="mt-5 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3"
-        >
-          <div class="flex items-start justify-between gap-3">
-            <div>
-              <div class="flex items-center gap-2">
-                <span class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span class="text-xs font-medium text-emerald-300">System Online</span>
-              </div>
-              <p class="mt-1 text-xs text-slate-400">Monitoring The Network</p>
-            </div>
-
-            <div class="text-right">
-              <p class="text-[10px] font-medium text-emerald-300">
-                {{ currentDate }}
-              </p>
-              <p class="mt-1 text-[10px] text-slate-400">
-                {{ currentTime }}s
-              </p>
-            </div>
-          </div>
-        </div>
-        <div v-else class="mt-4 flex justify-center">
-          <span class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
-        </div>
-      </Transition>
+      
     </div>
 
     <!-- Navigation -->
@@ -82,19 +55,36 @@
 
     <!-- Footer -->
     <div :class="['mt-6 border-t border-white/10 pt-5 flex flex-col gap-2', collapsed ? 'items-center' : '']">
-      <Transition name="fade">
-        <div
-          v-if="!collapsed"
-          class="mb-2 rounded-2xl border border-white/10 bg-white/[0.03] p-4"
-        >
-          <p class="text-xs text-slate-500">Logged in as</p>
-          <p class="mt-1 text-sm font-semibold text-white truncate">{{ username }}</p>
-        </div>
-      </Transition>
+      
+     
+
+      <!-- Role Badge -->
+<div
+  v-if="!collapsed"
+  class="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3"
+>
+  <p class="text-xs text-slate-500">Logged in as</p>
+
+  <div class="mt-2 flex items-center gap-2">
+    <span
+      class="h-2 w-2 rounded-full"
+      :class="roleDotClass"
+    ></span>
+
+    <span
+      class="text-xs font-semibold uppercase tracking-wide"
+      :class="roleTextClass"
+    >
+      {{ userRole }}
+    </span>
+  </div>
+</div>
+       
 
       <!-- Hii itakuwa Manage User -->
       <RouterLink
-        to="/register"
+        v-if="userRole === 'admin'"
+  to="/register"
         :title="collapsed ? 'Manage User' : ''"
         :class="[
           'flex items-center justify-center rounded-2xl border border-sky-400/20 bg-sky-400/10 text-sm font-medium text-sky-300 transition hover:bg-sky-500 hover:text-white hover:border-sky-500',
@@ -107,7 +97,7 @@
           <path stroke-linecap="round" stroke-linejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
         </svg>
         <Transition name="fade">
-          <span v-if="!collapsed">Manage User</span>
+          <span v-if="!collapsed">Manage Users</span>
         </Transition>
       </RouterLink>
 
@@ -150,6 +140,8 @@ const currentDate = computed(() => {
     year: 'numeric',
   }).format(now.value);
 });
+
+
 
 const currentTime = computed(() => {
   return new Intl.DateTimeFormat('en-GB', {
@@ -197,14 +189,57 @@ const IconSimulator = { render: () => h('svg', { fill: 'none', stroke: 'currentC
   h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z' })
 ]) };
 
-const links = [
-  { name: 'Dashboard',        path: '/dashboard',    icon: IconDashboard },
-  { name: 'Alerts',           path: '/alerts',       icon: IconAlerts },
-  { name: 'Traffic Monitor',  path: '/traffic',      icon: IconTraffic },
-  { name: 'Blocked IPs',      path: '/blocked_ips',  icon: IconBlocked },
-  { name: 'Model Status',     path: '/model_status', icon: IconModel },
-  { name: 'Attack Simulator', path: '/simulator',    icon: IconSimulator },
+
+
+const allLinks = [
+  {
+    name: 'Dashboard',
+    path: '/dashboard',
+    icon: IconDashboard,
+    roles: ['admin', 'analyst', 'viewer'],
+  },
+
+  {
+    name: 'Alerts',
+    path: '/alerts',
+    icon: IconAlerts,
+    roles: ['admin', 'analyst'],
+  },
+
+  {
+    name: 'Traffic Monitor',
+    path: '/traffic',
+    icon: IconTraffic,
+    roles: ['admin', 'analyst', 'viewer'],
+  },
+
+  {
+    name: 'Blocked IPs',
+    path: '/blocked_ips',
+    icon: IconBlocked,
+    roles: ['admin', 'analyst'],
+  },
+
+  {
+    name: 'Model Status',
+    path: '/model_status',
+    icon: IconModel,
+    roles: ['admin', 'analyst', 'viewer'],
+  },
+
+  {
+    name: 'Attack Simulator',
+    path: '/simulator',
+    icon: IconSimulator,
+    roles: ['admin', 'analyst'],
+  },
 ];
+
+const links = computed(() => {
+  return allLinks.filter((item) =>
+    item.roles.includes(userRole.value)
+  );
+});
 
 const username = computed(() => {
   try {
@@ -222,11 +257,28 @@ const isActive = (path) => route.path === path;
 const handleLogout = () => {
   localStorage.removeItem('access_token');
   sessionStorage.removeItem('access_token');
+  localStorage.removeItem('user_role');
   sessionStorage.setItem('authWarning', 'You have been logged out.');
   router.push('/login');
 };
-</script>
 
+const userRole = computed(() => {
+  return localStorage.getItem('user_role') || 'viewer';
+});
+
+const roleTextClass = computed(() => {
+  if (userRole.value === 'admin') return 'text-red-300';
+  if (userRole.value === 'analyst') return 'text-sky-300';
+  return 'text-emerald-300';
+});
+
+const roleDotClass = computed(() => {
+  if (userRole.value === 'admin') return 'bg-red-400';
+  if (userRole.value === 'analyst') return 'bg-sky-400';
+  return 'bg-emerald-400';
+});
+
+</script>
 <style scoped>
 .fade-enter-active,
 .fade-leave-active {

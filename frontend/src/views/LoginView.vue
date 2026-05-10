@@ -185,6 +185,12 @@ const submitLogin = async () => {
     }
 
     localStorage.setItem('access_token', token);
+
+    localStorage.setItem(
+      'user_role',
+      response.data?.user_role || 'viewer'
+    );
+
     sessionStorage.removeItem('authWarning');
 
     await router.push({ name: 'dashboard' });
