@@ -16,12 +16,10 @@
       </button>
     </div>
 
-    <!-- Loading State (initial only) -->
     <div v-if="loading && alerts.length === 0" class="text-slate-400">
       Loading alerts...
     </div>
 
-    <!-- Error State -->
     <div
       v-else-if="error"
       class="bg-red-500/10 border border-red-500/30 text-red-400 p-4 rounded-xl"
@@ -29,11 +27,42 @@
       {{ error }}
     </div>
 
-    <!-- Data Display -->
     <div
       v-else
       class="bg-slate-900 border border-slate-800 rounded-2xl p-6"
     >
+      <!-- Search + Filters -->
+      <div class="mb-5 grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <input
+          v-model="searchQuery"
+          type="text"
+          placeholder="Search source IP, destination IP, or threat..."
+          class="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition focus:border-sky-400"
+        />
+
+        <select
+          v-model="severityFilter"
+          class="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition focus:border-sky-400"
+        >
+          <option value="All">All Severities</option>
+          <option value="High">High</option>
+          <option value="Medium">Medium</option>
+          <option value="Low">Low</option>
+        </select>
+
+        <select
+          v-model="statusFilter"
+          class="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition focus:border-sky-400"
+        >
+          <option value="All">All Statuses</option>
+          <option value="Blocked">Blocked</option>
+          <option value="Monitoring">Monitoring</option>
+          <option value="Reviewed">Reviewed</option>
+          <option value="Resolved">Resolved</option>
+          <option value="False Positive">False Positive</option>
+        </select>
+      </div>
+
       <div class="flex items-center justify-between mb-5">
         <div>
           <h3 class="text-lg font-semibold text-white">All Alerts</h3>
@@ -42,14 +71,12 @@
           </p>
         </div>
 
-        <span
-          class="px-4 py-2 rounded-xl text-sm bg-red-500/20 text-red-400"
-        >
-          {{ pagination.total }} alerts
+        <span class="px-4 py-2 rounded-xl text-sm bg-red-500/20 text-red-400">
+          {{ filteredAlerts.length }} shown / {{ pagination.total }} total
         </span>
       </div>
 
-      <div v-if="alerts.length === 0" class="text-slate-400">
+      <div v-if="filteredAlerts.length === 0" class="text-slate-400">
         No alerts found.
       </div>
 
@@ -57,19 +84,19 @@
         <table class="w-full text-sm">
           <thead class="bg-slate-800 text-slate-300">
             <tr>
-              <th scope="col" class="text-left p-4">Time</th>
-              <th scope="col" class="text-left p-4">Source IP</th>
-              <th scope="col" class="text-left p-4">Destination IP</th>
-              <th scope="col" class="text-left p-4">Threat</th>
-              <th scope="col" class="text-left p-4">Severity</th>
-              <th scope="col" class="text-left p-4">Status</th>
-              <th scope="col" class="text-left p-4">Actions</th>
+              <th class="text-left p-4">Time</th>
+              <th class="text-left p-4">Source IP</th>
+              <th class="text-left p-4">Destination IP</th>
+              <th class="text-left p-4">Threat</th>
+              <th class="text-left p-4">Severity</th>
+              <th class="text-left p-4">Status</th>
+              <th class="text-left p-4">Actions</th>
             </tr>
           </thead>
 
           <tbody>
             <tr
-              v-for="alert in alerts"
+              v-for="alert in filteredAlerts"
               :key="alert.id"
               class="border-t border-slate-800 hover:bg-slate-800/50 transition"
             >
@@ -136,14 +163,14 @@
           </tbody>
         </table>
 
-        <!-- Backend Pagination Controls -->
         <div
           v-if="pagination.pages > 1"
           class="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
         >
           <p class="text-sm text-slate-400">
-            Showing {{ alerts.length }} records on page {{ pagination.page }}
-            of {{ pagination.pages }} · Total {{ pagination.total }}
+            Showing {{ filteredAlerts.length }} records on page
+            {{ pagination.page }} of {{ pagination.pages }} · Total
+            {{ pagination.total }}
           </p>
 
           <div class="flex items-center gap-2">
@@ -182,7 +209,6 @@
       </div>
     </div>
 
-    <!-- Success Message -->
     <div
       v-if="successMessage"
       class="mt-4 bg-green-500/10 border border-green-500/30 text-green-400 p-4 rounded-xl"
@@ -197,12 +223,15 @@ import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import api from '../services/api';
 
-// --- State ---
 const loading = ref(false);
 const error = ref('');
 const successMessage = ref('');
 const alerts = ref([]);
 const updatingAlertId = ref(null);
+
+const searchQuery = ref('');
+const severityFilter = ref('All');
+const statusFilter = ref('All');
 
 const currentPage = ref(1);
 const itemsPerPage = ref(10);
@@ -219,7 +248,30 @@ let successTimeout = null;
 
 const router = useRouter();
 
-// --- Visible page buttons ---
+const filteredAlerts = computed(() => {
+  return alerts.value.filter((alert) => {
+    const sourceIp = String(alert.sourceIp || alert.source_ip || '').toLowerCase();
+    const destinationIp = String(alert.destinationIp || alert.destination_ip || '').toLowerCase();
+    const threat = String(alert.threatType || alert.threat_type || '').toLowerCase();
+    const query = searchQuery.value.toLowerCase();
+
+    const matchesSearch =
+      sourceIp.includes(query) ||
+      destinationIp.includes(query) ||
+      threat.includes(query);
+
+    const matchesSeverity =
+      severityFilter.value === 'All' ||
+      alert.severity === severityFilter.value;
+
+    const matchesStatus =
+      statusFilter.value === 'All' ||
+      alert.status === statusFilter.value;
+
+    return matchesSearch && matchesSeverity && matchesStatus;
+  });
+});
+
 const visiblePages = computed(() => {
   const total = pagination.value.pages || 1;
   const current = pagination.value.page || 1;
@@ -235,7 +287,6 @@ const visiblePages = computed(() => {
   return range;
 });
 
-// --- Helper: Format Timestamp ---
 const formatTimestamp = (isoString) => {
   if (!isoString) return '—';
 
@@ -255,7 +306,6 @@ const formatTimestamp = (isoString) => {
   }).format(date);
 };
 
-// --- Styling Helpers ---
 const severityClass = (severity) => {
   if (severity === 'High') return 'bg-red-500/20 text-red-400';
   if (severity === 'Medium') return 'bg-yellow-500/20 text-yellow-400';
@@ -275,7 +325,6 @@ const statusClass = (status) => {
   return classes[status] || 'bg-slate-500/20 text-slate-400';
 };
 
-// --- Authentication & Redirect ---
 const clearAuthAndRedirect = (reason) => {
   localStorage.removeItem('access_token');
   sessionStorage.removeItem('access_token');
@@ -287,7 +336,6 @@ const clearAuthAndRedirect = (reason) => {
   }, 1500);
 };
 
-// --- Fetch Alerts using backend pagination ---
 const loadAlerts = async () => {
   if (loading.value) return;
 
@@ -304,8 +352,6 @@ const loadAlerts = async () => {
 
     const responseData = response.data;
 
-    // Backend pagination shape:
-    // { data: [...], pagination: { page, limit, total, pages } }
     alerts.value = Array.isArray(responseData?.data)
       ? responseData.data
       : Array.isArray(responseData)
@@ -326,7 +372,9 @@ const loadAlerts = async () => {
     if (err.response?.status === 401) {
       clearAuthAndRedirect('Your session has expired.');
     } else if (err.response?.status === 403) {
-      clearAuthAndRedirect('Access forbidden. Your token may be invalid or you lack permissions.');
+      clearAuthAndRedirect(
+        'Access forbidden. Your token may be invalid or you lack permissions.'
+      );
     } else if (err.code === 'ERR_NETWORK') {
       error.value = 'Cannot connect to backend. Is the server running?';
     } else {
@@ -343,7 +391,11 @@ const refreshAlerts = async () => {
 };
 
 const goToPage = async (page) => {
-  if (page < 1 || page > pagination.value.pages || page === pagination.value.page) {
+  if (
+    page < 1 ||
+    page > pagination.value.pages ||
+    page === pagination.value.page
+  ) {
     return;
   }
 
@@ -351,7 +403,6 @@ const goToPage = async (page) => {
   await loadAlerts();
 };
 
-// --- Update Alert Status ---
 const updateStatus = async (alertId, status) => {
   if (updatingAlertId.value === alertId) return;
 
@@ -362,7 +413,9 @@ const updateStatus = async (alertId, status) => {
   if (successTimeout) clearTimeout(successTimeout);
 
   try {
-    const response = await api.patch(`/api/v1/alerts/${alertId}/status`, { status });
+    const response = await api.patch(`/api/v1/alerts/${alertId}/status`, {
+      status,
+    });
 
     alerts.value = alerts.value.map((alert) =>
       alert.id === alertId ? response.data : alert
@@ -378,7 +431,9 @@ const updateStatus = async (alertId, status) => {
     if (err.response?.status === 401) {
       clearAuthAndRedirect('Your session has expired.');
     } else if (err.response?.status === 403) {
-      clearAuthAndRedirect('Access forbidden. Your token may be invalid or you lack permissions.');
+      clearAuthAndRedirect(
+        'Access forbidden. Your token may be invalid or you lack permissions.'
+      );
     } else if (err.code === 'ERR_NETWORK') {
       error.value = 'Cannot connect to backend. Is the server running?';
     } else {
@@ -390,18 +445,20 @@ const updateStatus = async (alertId, status) => {
   }
 };
 
-// --- Polling ---
 const startPolling = () => {
   if (refreshInterval) clearInterval(refreshInterval);
 
   refreshInterval = setInterval(() => {
-    if (!loading.value && !updatingAlertId.value && !error.value?.includes('Redirecting')) {
+    if (
+      !loading.value &&
+      !updatingAlertId.value &&
+      !error.value?.includes('Redirecting')
+    ) {
       loadAlerts();
     }
   }, 30000);
 };
 
-// --- Lifecycle ---
 onMounted(() => {
   loadAlerts();
   startPolling();

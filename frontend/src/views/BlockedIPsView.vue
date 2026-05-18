@@ -82,6 +82,36 @@
       v-else
       class="bg-slate-900 border border-slate-800 rounded-2xl p-6"
     >
+
+      <!-- Search + Filters -->
+        <div class="mb-5 grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <input
+            v-model="searchQuery"
+            type="text"
+            placeholder="Search IP address or reason..."
+            class="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition focus:border-sky-400"
+          />
+
+          <select
+            v-model="modeFilter"
+            class="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition focus:border-sky-400"
+          >
+            <option value="All">All Modes</option>
+            <option value="Auto">Auto</option>
+            <option value="Manual">Manual</option>
+          </select>
+
+          <select
+            v-model="statusFilter"
+            class="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition focus:border-sky-400"
+          >
+            <option value="All">All Statuses</option>
+            <option value="Active">Active</option>
+            <option value="Inactive">Inactive</option>
+            <option value="Removed">Removed</option>
+          </select>
+        </div>   
+
       <div class="mb-5 flex items-center justify-between">
         <div>
           <h3 class="text-lg font-semibold text-white">Blocked IP Records</h3>
@@ -91,11 +121,11 @@
         </div>
 
         <span class="bg-red-500/20 text-red-400 px-4 py-2 rounded-xl text-sm">
-          {{ pagination.total }} blocked IPs
+          {{ filteredBlockedIps.length }} shown / {{ pagination.total }} total
         </span>
       </div>
 
-      <div v-if="blockedIps.length === 0" class="text-slate-400">
+      <div v-if="filteredBlockedIps.length === 0" class="text-slate-400">
         No blocked IPs found.
       </div>
 
@@ -113,7 +143,7 @@
 
           <tbody>
             <tr
-              v-for="ip in blockedIps"
+              v-for="ip in filteredBlockedIps"
               :key="ip.id || ip.ip_address || ip.ipAddress"
               class="border-t border-slate-800 hover:bg-slate-800/50"
             >
@@ -156,7 +186,7 @@
           class="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
         >
           <p class="text-sm text-slate-400">
-            Showing {{ blockedIps.length }} records on page
+            Showing {{ filteredBlockedIps.length }} records on page
             {{ pagination.page }} of {{ pagination.pages }}
             · Total {{ pagination.total }}
           </p>
@@ -211,6 +241,9 @@ const error = ref('');
 const showForm = ref(false);
 const blockedIps = ref([]);
 
+const searchQuery = ref('');
+const modeFilter = ref('All');
+const statusFilter = ref('All');
 const currentPage = ref(1);
 const itemsPerPage = ref(10);
 
@@ -229,6 +262,32 @@ const form = ref({
 });
 
 const router = useRouter();
+
+const filteredBlockedIps = computed(() => {
+  return blockedIps.value.filter((ip) => {
+    const ipAddress = String(
+      ip.ip_address || ip.ipAddress || ''
+    ).toLowerCase();
+
+    const reason = String(ip.reason || '').toLowerCase();
+
+    const query = searchQuery.value.toLowerCase();
+
+    const matchesSearch =
+      ipAddress.includes(query) ||
+      reason.includes(query);
+
+    const matchesMode =
+      modeFilter.value === 'All' ||
+      ip.mode === modeFilter.value;
+
+    const matchesStatus =
+      statusFilter.value === 'All' ||
+      ip.status === statusFilter.value;
+
+    return matchesSearch && matchesMode && matchesStatus;
+  });
+});
 
 // --- Visible page buttons ---
 const visiblePages = computed(() => {

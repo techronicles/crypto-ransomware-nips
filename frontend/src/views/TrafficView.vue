@@ -51,6 +51,39 @@
 
       <!-- Traffic Table -->
       <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+        <!-- Search + Filters -->
+          <div class="mb-5 grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <!-- Search -->
+            <input
+              v-model="searchQuery"
+              type="text"
+              placeholder="Search source or destination IP..."
+              class="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition focus:border-sky-400"
+            />
+
+            <!-- Protocol -->
+            <select
+              v-model="protocolFilter"
+              class="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition focus:border-sky-400"
+            >
+              <option value="All">All Protocols</option>
+              <option value="TCP">TCP</option>
+              <option value="UDP">UDP</option>
+            </select>
+
+            <!-- Prediction -->
+            <select
+              v-model="predictionFilter"
+              class="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition focus:border-sky-400"
+            >
+              <option value="All">All Predictions</option>
+              <option value="Malicious">Malicious</option>
+              <option value="Suspicious">Suspicious</option>
+              <option value="Benign">Benign</option>
+              <option value="Normal">Normal</option>
+            </select>
+          </div>
+
         <div class="mb-5 flex items-center justify-between">
           <div>
             <h3 class="text-lg font-semibold text-white">Traffic Records</h3>
@@ -62,11 +95,11 @@
           <span
             class="px-4 py-2 rounded-xl text-sm bg-sky-500/20 text-sky-400"
           >
-            {{ pagination.total }} records
+            {{ filteredTraffic.length }} shown / {{ pagination.total }} total
           </span>
         </div>
 
-        <div v-if="trafficRecords.length === 0" class="text-slate-400">
+        <div v-if="filteredTraffic.length === 0" class="text-slate-400">
           No traffic records found.
         </div>
 
@@ -85,7 +118,7 @@
 
             <tbody>
               <tr
-                v-for="traffic in trafficRecords"
+                v-for="traffic in filteredTraffic"
                 :key="traffic.id"
                 class="border-t border-slate-800 hover:bg-slate-800/50"
               >
@@ -127,7 +160,7 @@
             class="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
           >
             <p class="text-sm text-slate-400">
-              Showing {{ trafficRecords.length }} records on page
+              Showing {{ filteredTraffic.length }} records on page
               {{ pagination.page }} of {{ pagination.pages }}
               · Total {{ pagination.total }}
             </p>
@@ -181,6 +214,9 @@ const loading = ref(false);
 const error = ref('');
 const trafficRecords = ref([]);
 
+const searchQuery = ref('');
+const protocolFilter = ref('All');
+const predictionFilter = ref('All');
 const currentPage = ref(1);
 const itemsPerPage = ref(10);
 
@@ -194,6 +230,48 @@ const pagination = ref({
 let refreshInterval = null;
 
 const router = useRouter();
+
+//search
+const filteredTraffic = computed(() => {
+  return trafficRecords.value.filter((traffic) => {
+    const sourceIp = String(
+      traffic.sourceIp || traffic.source_ip || ''
+    ).toLowerCase();
+
+    const destinationIp = String(
+      traffic.destinationIp || traffic.destination_ip || ''
+    ).toLowerCase();
+
+    const protocol = String(
+      traffic.protocol || ''
+    ).toLowerCase();
+
+    const prediction = String(
+      traffic.prediction || ''
+    ).toLowerCase();
+
+    const query = searchQuery.value.toLowerCase();
+
+    const matchesSearch =
+      sourceIp.includes(query) ||
+      destinationIp.includes(query);
+
+    const matchesProtocol =
+      protocolFilter.value === 'All' ||
+      traffic.protocol === protocolFilter.value;
+
+    const matchesPrediction =
+      predictionFilter.value === 'All' ||
+      traffic.prediction === predictionFilter.value;
+
+    return (
+      matchesSearch &&
+      matchesProtocol &&
+      matchesPrediction
+    );
+  });
+});
+
 
 // --- Visible page buttons ---
 const visiblePages = computed(() => {

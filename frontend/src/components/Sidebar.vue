@@ -59,26 +59,16 @@
      
 
       <!-- Role Badge -->
-<div
-  v-if="!collapsed"
-  class="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3"
->
+<div v-if="!collapsed" class="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 flex flex-row items-center justify-center gap-4">
   <p class="text-xs text-slate-500">Logged in as</p>
-
-  <div class="mt-2 flex items-center gap-2">
-    <span
-      class="h-2 w-2 rounded-full"
-      :class="roleDotClass"
-    ></span>
-
-    <span
-      class="text-xs font-semibold uppercase tracking-wide"
-      :class="roleTextClass"
-    >
+  <div class="flex items-center gap-2">
+    <span class="h-2 w-2 rounded-full" :class="roleDotClass"></span>
+    <span class="text-xs font-semibold uppercase tracking-wide" :class="roleTextClass">
       {{ userRole }}
     </span>
   </div>
 </div>
+
        
 
       <!-- Hii itakuwa Manage User -->
